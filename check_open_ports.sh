@@ -8,6 +8,8 @@ fi
 
 URL_FILE=$1
 OUTPUT_FILE="open_ports.csv"
+TIMEOUT_LIVE=30
+TIMEOUT_NOT_LIVE=10
 
 # Check if the input file exists
 if [ ! -f "$URL_FILE" ]; then
@@ -28,14 +30,14 @@ extract_domain() {
 # Function to extract IP from nmap output
 extract_ip() {
   local domain=$1
-  local ip=$(nmap -sn $domain | grep "scan report" | awk '{print $5}')
+  local ip=$(nmap -sn --host-timeout ${TIMEOUT_LIVE}s $domain | grep "scan report" | awk '{print $5}')
   echo $ip
 }
 
 # Function to check if a URL is live
 check_url_live() {
   local url=$1
-  local response=$(curl -o /dev/null -s -w "%{http_code}\n" $url)
+  local response=$(curl -o /dev/null -s --max-time $TIMEOUT_NOT_LIVE -w "%{http_code}\n" $url)
   if [[ "$response" -ge 200 && "$response" -lt 400 ]]; then
     echo "live"
   else
@@ -60,7 +62,7 @@ while IFS= read -r url; do
     
     if [ "$live_status" = "live" ]; then
       echo "Scanning $domain for open ports..."
-      nmap_output=$(nmap -Pn $domain)
+      nmap_output=$(timeout ${TIMEOUT_LIVE}s nmap -Pn --host-timeout ${TIMEOUT_LIVE}s $domain)
       ip=$(extract_ip "$domain")
 
       # Parse nmap output for open ports
